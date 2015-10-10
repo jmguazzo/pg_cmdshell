@@ -106,7 +106,7 @@ int RunRedirectStdout(char *command_line, BOOL use_cmd_exe, char ** results)
 	char** temp_result = NULL;
 	temp_result = palloc(1 * sizeof(*temp_result));
 
-	int result_count = 0;
+	long result_count = 0;
 
 	char empty_buffer[256] = { 0 };
 	char file_buffer[256] = { 0 };
@@ -125,7 +125,7 @@ int RunRedirectStdout(char *command_line, BOOL use_cmd_exe, char ** results)
 
 		for (int i = 0; i < file_buffer_length; i++){
 
-			if (file_buffer[i] != '\r'){
+			if (file_buffer[i] != '\r' && line_buffer_char_count<=255){
 				//while interesting char are found, they are added to the line buffer
 				line_buffer[line_buffer_char_count] = file_buffer[i];
 				line_buffer_char_count++;
