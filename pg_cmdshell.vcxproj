@@ -65,22 +65,22 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>C:\Program Files (x86)\PostgreSQL\9.5\lib\</OutDir>
-    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
+    <OutDir>$(ProjectDir)</OutDir>
+    <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>C:\Program Files\PostgreSQL\9.4\lib\</OutDir>
-    <PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
+    <OutDir>$(ProjectDir)</OutDir>
+    <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>C:\Program Files (x86)\PostgreSQL\9.5\lib\</OutDir>
+    <OutDir>$(ProjectDir)</OutDir>
     <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <GenerateManifest>false</GenerateManifest>
-    <OutDir>C:\Program Files\PostgreSQL\9.4\lib\</OutDir>
+    <OutDir>$(ProjectDir)</OutDir>
     <PreBuildEventUseInBuild>false</PreBuildEventUseInBuild>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

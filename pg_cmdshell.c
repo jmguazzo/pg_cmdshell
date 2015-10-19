@@ -2,12 +2,28 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "funcapi.h"
+#include "miscadmin.h"
+#include "utils/builtins.h"
 #include "run_to_stdout.h"
+
 
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
 
+
+char * get_char_from_text_pg_arg(PG_FUNCTION_ARGS, int arg_id){
+
+	text            * content_as_text = PG_GETARG_TEXT_P(arg_id);
+	int               content_as_text_length = VARSIZE(content_as_text) - VARHDRSZ;
+	char            * content = (char *)palloc(content_as_text_length + 1);
+
+	memcpy(content, content_as_text->vl_dat, content_as_text_length);
+
+	content[content_as_text_length] = '\0';
+
+	return content;
+}
 
 PGDLLEXPORT Datum pg_cmdshell(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum pg_winshell(PG_FUNCTION_ARGS);
@@ -15,6 +31,7 @@ PGDLLEXPORT Datum pg_winshell(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(pg_cmdshell);
 PG_FUNCTION_INFO_V1(pg_winshell);
+
 
 
 typedef struct
@@ -25,56 +42,66 @@ typedef struct
 
 
 Datum pg_shell(PG_FUNCTION_ARGS, BOOL use_cmd_exe){
-	FuncCallContext * srf;
-	pg_cmdshell_context           * ctx;
 
+	if (!superuser()){
+		ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_PRIVILEGE), "Only a superuser can execute this extension."));
+	}
 
-	//Convert PG param to char string
-	text            * text_command_line = PG_GETARG_TEXT_P(0);
-	int               text_command_line_length = VARSIZE(text_command_line) - VARHDRSZ;
-	char            * command_line = (char *)palloc(text_command_line_length + 1);
-	memcpy(command_line, text_command_line->vl_dat, text_command_line_length);
-	command_line[text_command_line_length] = '\0';
-
+	FuncCallContext       * fn_call_context;
+	pg_cmdshell_context   * context;
 
 	if (SRF_IS_FIRSTCALL())
 	{
-		srf = SRF_FIRSTCALL_INIT();
+		
+		MemoryContext old_context;
 
-		srf->user_fctx = MemoryContextAlloc(srf->multi_call_memory_ctx, sizeof(char**));
+		char * command_line = get_char_from_text_pg_arg(fcinfo, 0);
 
-		ctx = (pg_cmdshell_context *)srf->user_fctx;
+		fn_call_context = SRF_FIRSTCALL_INIT();
+		old_context = MemoryContextSwitchTo(fn_call_context->multi_call_memory_ctx);
 
-		int nbrLignes = RunRedirectStdout(command_line, use_cmd_exe, &ctx->list_result_line);
+		context = palloc(sizeof(pg_cmdshell_context));
 
-		srf->max_calls = nbrLignes;
-		srf->call_cntr = 0;
+		int line_count = exec_with_redirect_from_stdout(command_line, use_cmd_exe, &context->list_result_line);
+
+		fn_call_context->user_fctx = context;
+		fn_call_context->max_calls = line_count;
+		fn_call_context->call_cntr = 0;
+
+		MemoryContextSwitchTo(old_context);
+
+		pfree(command_line);
+
 	}
 
-	srf = SRF_PERCALL_SETUP();
-	ctx = (char**)srf->user_fctx;
+	fn_call_context = SRF_PERCALL_SETUP();
+	context = (pg_cmdshell_context*)fn_call_context->user_fctx;
 
 
+	if (fn_call_context->max_calls == -1)
+		SRF_RETURN_DONE(fn_call_context);
 
-	if (srf->max_calls == -1)
-		SRF_RETURN_DONE(srf);
-
-	if (srf->call_cntr < srf->max_calls)
+	if (fn_call_context->call_cntr < fn_call_context->max_calls)
 	{
-		size_t longueur = strlen(ctx->list_result_line[srf->call_cntr]);
-		text * result = cstring_to_text_with_len(ctx->list_result_line[srf->call_cntr], longueur);
-		SRF_RETURN_NEXT(srf, (Datum)result);
+		int actual_result_length = (int)strlen(context->list_result_line[fn_call_context->call_cntr]);
+
+		text * actual_result = cstring_to_text_with_len(context->list_result_line[fn_call_context->call_cntr], actual_result_length);
+
+		SRF_RETURN_NEXT(fn_call_context, (Datum)actual_result);
 	}
 	else
 	{
-		SRF_RETURN_DONE(srf);
+		SRF_RETURN_DONE(fn_call_context);
 	}
 }
 
+
+//Execute actions after "cmd.exe /c " (See COMSPEC)
 Datum pg_cmdshell(PG_FUNCTION_ARGS){
 	return pg_shell(fcinfo, true);
 }
 
+//Execute actions in the windows shell
 Datum pg_winshell(PG_FUNCTION_ARGS){
 	return pg_shell(fcinfo, false);
 }
